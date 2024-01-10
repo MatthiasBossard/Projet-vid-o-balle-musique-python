@@ -1,0 +1,143 @@
+import pygame
+import random
+import time
+
+# Initialisation de Pygame
+pygame.init()
+
+# Initialisation de Pygame.mixer
+pygame.mixer.init()
+
+# Paramètres de la fenêtre
+largeur_fenetre = 600
+hauteur_fenetre = 1000
+fenetre = pygame.display.set_mode((largeur_fenetre, hauteur_fenetre))
+pygame.display.set_caption("Balle rebondissante musicale")
+
+# Paramètres de la balle
+rayon_balle = 12
+position_balle = [largeur_fenetre // 2, hauteur_fenetre // 2]
+vitesse_balle = [20, 2]  # Modifié pour commencer en direction de la droite
+
+# Paramètres de la forme (cercle)
+centre_cercle = [largeur_fenetre // 2, hauteur_fenetre // 2]
+rayon_cercle = 250
+
+# Gravité (ajustez selon vos besoins)
+gravite = 2
+
+# Force des rebonds (ajustez selon vos besoins)
+force_rebond = 6
+
+# Vitesse maximale pour éviter les problèmes de vitesse excessive
+vitesse_max = 16
+
+# Historique des positions de la balle
+historique_positions = []
+
+# Chargement des sons
+pygame.mixer.music.load("C:/TRAVAILLE/EDITING/AA - Ressources/Sound Effects/POP/Pop Pack 01/wav/(1) Pop 1.wav")
+pygame.mixer.music.set_volume(0.5)  # Ajustez le volume selon vos préférences
+
+def interpole_couleur(couleur1, couleur2, ratio):
+    r = int(couleur1[0] * (1 - ratio) + couleur2[0] * ratio)
+    g = int(couleur1[1] * (1 - ratio) + couleur2[1] * ratio)
+    b = int(couleur1[2] * (1 - ratio) + couleur2[2] * ratio)
+    return (r, g, b)
+
+# Nombre d'images à conserver dans l'historique
+nombre_images_tracé = 1000
+
+# Intervalle de changement de couleur (en secondes)
+intervalle_changement_couleur = 2.0  # Changer la valeur selon votre préférence
+temps_dernier_changement_couleur = time.time()
+
+# Rayon blanc autour de la balle
+rayon_blanc = 5
+
+# Rayon blanc autour des balles de tracé
+rayon_blanc_tracé = 2
+
+# Couleur de départ (bleu clair)
+couleur_balle = (173, 216, 230)
+
+# Initialiser la couleur suivante
+couleur_suivante = (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
+
+# Boucle principale
+running = True
+while running:
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+
+    # Déplacement de la balle avec gravité
+    vitesse_balle[1] += gravite  # Ajout de la composante de gravité
+
+    position_balle[0] += vitesse_balle[0]
+    position_balle[1] += vitesse_balle[1]
+
+    # Limiter la vitesse maximale
+    vitesse_balle[0] = max(-vitesse_max, min(vitesse_max, vitesse_balle[0]))
+    vitesse_balle[1] = max(-vitesse_max, min(vitesse_max, vitesse_balle[1]))
+
+    # Rebond sur le cercle
+    distance_centre = ((position_balle[0] - centre_cercle[0]) ** 2 +
+                       (position_balle[1] - centre_cercle[1]) ** 2) ** 0.5
+
+    if distance_centre + rayon_balle >= rayon_cercle:
+        vitesse_balle[0] = -vitesse_balle[0] * force_rebond
+        vitesse_balle[1] = -vitesse_balle[1] * force_rebond
+
+        # Jouer le son à chaque rebond
+        pygame.mixer.music.play()
+
+    # Rebond sur les bords de la fenêtre
+    if position_balle[1] + rayon_balle >= hauteur_fenetre or position_balle[1] - rayon_balle <= 0:
+        vitesse_balle[1] = -vitesse_balle[1] * force_rebond
+        pygame.mixer.music.play()
+
+    if position_balle[0] + rayon_balle >= largeur_fenetre or position_balle[0] - rayon_balle <= 0:
+        vitesse_balle[0] = -vitesse_balle[0] * force_rebond
+        pygame.mixer.music.play()
+
+    # Enregistrement de la position actuelle
+    historique_positions.append((int(position_balle[0]), int(position_balle[1]), couleur_balle))
+
+    # Limiter le nombre d'images dans l'historique
+    historique_positions = historique_positions[-nombre_images_tracé:]
+
+    # Effacer l'écran avec un fond noir
+    fenetre.fill((0, 0, 0))
+
+    # Dessiner le cercle
+    pygame.draw.circle(fenetre, (255, 255, 255), (centre_cercle[0], centre_cercle[1]), rayon_cercle, 2)
+
+    # Dessiner le tracé de la balle avec changement de couleur en dégradé
+    for i, (pos_x, pos_y, color) in enumerate(historique_positions):
+        # Changer progressivement la couleur du tracé
+        alpha = int(255 * (i + 1) / len(historique_positions))
+        couleur_tracé = (color[0], color[1], color[2], alpha)
+        pygame.draw.circle(fenetre, couleur_tracé, (pos_x, pos_y), rayon_balle + rayon_blanc_tracé)
+
+    # Changer la couleur de la balle plus lentement
+    if time.time() - temps_dernier_changement_couleur >= intervalle_changement_couleur:
+        couleur_suivante = (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
+        temps_dernier_changement_couleur = time.time()
+
+    # Interpoler linéairement vers la nouvelle couleur
+    ratio_temps = (time.time() - temps_dernier_changement_couleur) / intervalle_changement_couleur
+    couleur_balle = interpole_couleur(couleur_balle, couleur_suivante, ratio_temps)
+
+    # Dessiner la balle avec un rayon blanc autour
+    pygame.draw.circle(fenetre, couleur_balle, (int(position_balle[0]), int(position_balle[1])), rayon_balle)
+    pygame.draw.circle(fenetre, (255, 255, 255), (int(position_balle[0]), int(position_balle[1])), rayon_balle + rayon_blanc, 2)
+
+    # Mettre à jour l'affichage
+    pygame.display.flip()
+
+    # Limiter la vitesse de rafraîchissement
+    pygame.time.Clock().tick(30)
+
+# Fermer Pygame
+pygame.quit()
